@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jelly UI — Soft-Body Physics in the Browser</title>
+  <meta name="description" content="A playful, tactile front-end exploration of real soft-body jelly physics in UI design. Plain HTML, CSS, and Vanilla JavaScript.">
+  
+  <!-- Google Fonts: Fredoka (Rounded Display) & Plus Jakarta Sans (Clean Body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-section="hero">
+  <!-- Custom Jelly Cursor -->
+  <div id="jelly-cursor" aria-hidden="true">
+    <div class="cursor-blob"></div>
+    <div class="cursor-dot"></div>
+  </div>
+
+  <!-- Quick Floating Physics Tuner -->
+  <aside id="physics-tuner" class="tuner-drawer" aria-label="Physics Tuning Controls">
+    <button id="tuner-toggle" class="tuner-tab-btn" aria-expanded="false" title="Toggle Jelly Physics Tuner">
+      <span class="tab-icon">🍮</span>
+      <span class="tab-label">Tuner</span>
+    </button>
+    <div class="tuner-content">
+      <div class="tuner-header">
+        <span class="tuner-title">🍮 Jelly Physics Tuner</span>
+        <button id="tuner-reset-btn" class="tuner-mini-btn" title="Reset to Defaults">Reset</button>
+      </div>
+      <div class="tuner-presets">
+        <span class="control-label">Feel Preset:</span>
+        <div class="preset-group">
+          <button class="preset-btn" data-preset="jiggly">Jiggly</button>
+          <button class="preset-btn active" data-preset="classic">Classic</button>
+          <button class="preset-btn" data-preset="firm">Firm</button>
+          <button class="preset-btn" data-preset="gooey">Gooey</button>
+        </div>
+      </div>
+      <div class="tuner-controls">
+        <label class="control-row">
+          <span class="control-name">Stiffness (<span id="val-stiffness">0.12</span>)</span>
+          <input type="range" id="param-stiffness" min="0.03" max="0.30" step="0.01" value="0.12">
+        </label>
+        <label class="control-row">
+          <span class="control-name">Damping (<span id="val-damping">0.89</span>)</span>
+          <input type="range" id="param-damping" min="0.75" max="0.97" step="0.01" value="0.89">
+        </label>
+        <label class="control-row">
+          <span class="control-name">Perimeter Tension (<span id="val-perimeter">0.24</span>)</span>
+          <input type="range" id="param-perimeter" min="0.05" max="0.50" step="0.01" value="0.24">
+        </label>
+        <label class="control-row">
+          <span class="control-name">Pointer Force (<span id="val-force">1.8</span>)</span>
+          <input type="range" id="param-force" min="0.5" max="4.0" step="0.1" value="1.8">
+        </label>
+        <label class="control-row">
+          <span class="control-name">Wobble Mult (<span id="val-wobble">1.0</span>)</span>
+          <input type="range" id="param-wobble" min="0.2" max="2.5" step="0.1" value="1.0">
+        </label>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Navigation Bar -->
+  <header class="site-header">
+    <div class="header-inner container">
+      <a href="#hero" class="brand-logo" aria-label="Jelly UI Homepage">
+        <span class="logo-mark">🍮</span>
+        <span class="logo-text">Jelly<span class="logo-accent">UI</span></span>
+      </a>
+      <nav class="site-nav" aria-label="Main Navigation">
+        <ul class="nav-list">
+          <li><a href="#hero" class="nav-link active">Hero</a></li>
+          <li><a href="#playground" class="nav-link">Playground</a></li>
+          <li><a href="#components" class="nav-link">Components</a></li>
+          <li><a href="#story" class="nav-link">Scroll Story</a></li>
+        </ul>
+      </nav>
+      <div class="header-actions">
+        <a href="#playground" class="squish-pill-btn">Play Now</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <!-- SECTION 1: HERO -->
+    <section id="hero" class="hero-section" data-bg="hero">
+      <div class="container hero-container">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          <span>Tactile Soft-Body Physics</span>
+        </div>
+        
+        <h1 class="hero-headline">
+          UI elements that behave like <span class="jelly-text-gradient">real jelly.</span>
+        </h1>
+        
+        <p class="hero-subhead">
+          Spring-damper physics, Catmull-Rom curvature, and real-time viscoelastic deformation.
+          Hover, push, squish, drag, and fling.
+        </p>
+
+        <!-- Big Hero Jelly Canvas Area -->
+        <div class="hero-stage">
+          <div class="hero-canvas-wrap">
+            <canvas id="hero-canvas" width="600" height="520" aria-label="Interactive Jelly Blob" role="img"></canvas>
+            
+            <div class="hero-instructions" aria-hidden="true">
+              <span class="inst-pill">👈 Drag me</span>
+              <span class="inst-pill">👆 Poke fast</span>
+              <span class="inst-pill">✨ Watch me breathe</span>
+            </div>
+          </div>
+
+          <!-- Live Physics Meter -->
+          <div class="hero-telemetry" aria-live="polite">
+            <div class="telemetry-item">
+              <span class="tel-label">State</span>
+              <span id="tel-state" class="tel-val">Breathing</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="tel-label">Deformation</span>
+              <span id="tel-squish" class="tel-val">0%</span>
+            </div>
+            <div class="telemetry-item">
+              <span class="tel-label">Energy</span>
+              <span id="tel-energy" class="tel-val">Low</span>
+            </div>
+            <div class="hero-actions-row">
+              <button id="hero-poke-btn" class="quick-poke-btn" title="Send a shockwave impulse">⚡ Slap</button>
+              <button id="hero-color-btn" class="quick-poke-btn" title="Cycle flavor color">🍓 Flavor</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scroll Hint -->
+        <a href="#playground" class="scroll-hint" aria-label="Scroll to Playground">
+          <span class="scroll-text">Scroll to explore</span>
+          <div class="scroll-jelly-blob">
+            <div class="scroll-dot"></div>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <!-- SECTION 2: PLAYGROUND -->
+    <section id="playground" class="playground-section" data-bg="playground">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-tag">Interactive Sandbox</div>
+          <h2 class="section-title">The Jelly Playground</h2>
+          <p class="section-desc">
+            Five soft-body shapes: circle, rounded squircle, 5-point star, capsule pill, and ring.
+            Grab, drag, flick with momentum, or collide them together. They squish softly against each other and the boundaries.
+          </p>
+        </div>
+
+        <div class="playground-toolbar">
+          <div class="toolbar-left">
+            <span class="toolbar-hint">🖱️ Click & Drag to fling shapes • Pointer speed generates shockwaves</span>
+          </div>
+          <div class="toolbar-actions">
+            <button id="pg-shake-btn" class="playground-btn">
+              <span>🌪️ Shake Box</span>
+            </button>
+            <button id="pg-gravity-btn" class="playground-btn">
+              <span id="pg-gravity-label">🍎 Soft Gravity: Off</span>
+            </button>
+            <button id="pg-reset-btn" class="playground-btn">
+              <span>↺ Reset</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="playground-box">
+          <canvas id="playground-canvas" width="1100" height="620" aria-label="Soft body physics playground with draggable shapes" role="application"></canvas>
+          <div class="playground-legend">
+            <span class="legend-chip color-strawberry">Strawberry Ball</span>
+            <span class="legend-chip color-mint">Mint Squircle</span>
+            <span class="legend-chip color-lemon">Lemon Star</span>
+            <span class="legend-chip color-grape">Grape Pill</span>
+            <span class="legend-chip color-sky">Sky Drop</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: JELLY COMPONENTS -->
+    <section id="components" class="components-section" data-bg="components">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-tag">Everyday UI, Made Gelatinous</div>
+          <h2 class="section-title">Tactile Jelly Components</h2>
+          <p class="section-desc">
+            What if standard buttons, toggles, sliders, cards, and letters lived in a world of pure gelatin?
+            Everything squishes under your touch and bounces back with authentic spring harmonics.
+          </p>
+        </div>
+
+        <div class="components-grid">
+          <!-- Component 1: Squishy Buttons -->
+          <div class="comp-card" id="card-buttons">
+            <div class="comp-card-header">
+              <span class="comp-icon">🔘</span>
+              <div class="comp-meta">
+                <h3 class="comp-title">Squishy Buttons</h3>
+                <span class="comp-subtitle">Compresses on hover & click</span>
+              </div>
+            </div>
+            <div class="comp-preview button-group-preview">
+              <!-- Canvas-backed jelly button 1 -->
+              <div class="jelly-btn-wrapper" id="btn-wrap-1">
+                <canvas class="jelly-btn-canvas" width="220" height="70"></canvas>
+                <button class="jelly-btn-native" id="action-btn-1" aria-label="Squish Primary Action">
+                  <span>Squish Me! 🍓</span>
+                </button>
+              </div>
+
+              <!-- Canvas-backed jelly button 2 -->
+              <div class="jelly-btn-wrapper" id="btn-wrap-2">
+                <canvas class="jelly-btn-canvas" width="200" height="70"></canvas>
+                <button class="jelly-btn-native" id="action-btn-2" aria-label="Bounce Action">
+                  <span>Bounce  mint 🌱</span>
+                </button>
+              </div>
+
+              <!-- Small playful badge -->
+              <div class="btn-feedback" id="btn-feedback-msg" aria-live="polite">Click or poke any button to trigger viscoelastic ripple</div>
+            </div>
+          </div>
+
+          <!-- Component 2: Jelly Toggle Switch -->
+          <div class="comp-card" id="card-toggle">
+            <div class="comp-card-header">
+              <span class="comp-icon">🎚️</span>
+              <div class="comp-meta">
+                <h3 class="comp-title">Jelly Toggle Switch</h3>
+                <span class="comp-subtitle">Stretches, snaps & overshoots</span>
+              </div>
+            </div>
+            <div class="comp-preview toggle-preview">
+              <div class="toggle-interactive-area">
+                <canvas id="toggle-canvas" width="300" height="130" aria-label="Interactive Jelly Toggle Switch" role="switch" aria-checked="false" tabindex="0"></canvas>
+                <div class="toggle-status">
+                  State: <strong id="toggle-state-text">OFF</strong>
+                </div>
+              </div>
+              <p class="comp-caption">Click, drag the knob across, or press <kbd>Space</kbd> / <kbd>Enter</kbd> to toggle.</p>
+            </div>
+          </div>
+
+          <!-- Component 3: Elastic Ribbon Slider -->
+          <div class="comp-card comp-card-wide" id="card-slider">
+            <div class="comp-card-header">
+              <span class="comp-icon">〰️</span>
+              <div class="comp-meta">
+                <h3 class="comp-title">Elastic Jelly Slider</h3>
+                <span class="comp-subtitle">Track sags and wiggles when dragged</span>
+              </div>
+            </div>
+            <div class="comp-preview slider-preview">
+              <div class="slider-canvas-wrap">
+                <canvas id="slider-canvas" width="700" height="150" aria-label="Elastic jelly slider" role="slider" aria-valuenow="50" aria-valuemin="0" aria-valuemax="100" tabindex="0"></canvas>
+              </div>
+              <div class="slider-readout">
+                <span>Elastic Strain: <strong id="slider-val-readout">50%</strong></span>
+                <span class="slider-hint">Drag handle sideways or pull down to stretch track</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Component 4: Wobbly Gelatin Cards -->
+          <div class="comp-card comp-card-wide" id="card-wobble-cards">
+            <div class="comp-card-header">
+              <span class="comp-icon">🃏</span>
+              <div class="comp-meta">
+                <h3 class="comp-title">Wobbly Content Cards</h3>
+                <span class="comp-subtitle">Spring physics on 3D cursor tracking</span>
+              </div>
+            </div>
+            <div class="wobble-cards-container">
+              <div class="wobble-card" data-tilt-flavor="strawberry">
+                <div class="wobble-card-gel"></div>
+                <div class="card-content">
+                  <div class="card-pill">01 • Hooke's Law</div>
+                  <h4>Restoring Springs</h4>
+                  <p>Every perimeter point is tethered to its resting coordinate with spring damping.</p>
+                  <span class="card-flavor-tag">🍓 Strawberry</span>
+                </div>
+              </div>
+              <div class="wobble-card" data-tilt-flavor="mint">
+                <div class="wobble-card-gel"></div>
+                <div class="card-content">
+                  <div class="card-pill">02 • Curvature</div>
+                  <h4>Catmull-Rom</h4>
+                  <p>Midpoint quadratic spline interpolation eliminates sharp polygonal vertices completely.</p>
+                  <span class="card-flavor-tag">🌱 Mint</span>
+                </div>
+              </div>
+              <div class="wobble-card" data-tilt-flavor="grape">
+                <div class="wobble-card-gel"></div>
+                <div class="card-content">
+                  <div class="card-pill">03 • Optics</div>
+                  <h4>Specular Shift</h4>
+                  <p>Translucent gradients and dynamic specular highlights bend with the body deformation.</p>
+                  <span class="card-flavor-tag">🍇 Grape</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Component 5: Jelly Typography (Letters that wobble) -->
+          <div class="comp-card comp-card-full" id="card-jelly-text">
+            <div class="comp-card-header">
+              <span class="comp-icon">🔤</span>
+              <div class="comp-meta">
+                <h3 class="comp-title">Jelly Typography</h3>
+                <span class="comp-subtitle">Touch, sweep, or drag through each letter to wobble it</span>
+              </div>
+            </div>
+            <div class="comp-preview text-preview">
+              <div class="text-canvas-wrap">
+                <canvas id="text-canvas" width="900" height="200" aria-label="Interactive Jelly Letters spelling JELLY" role="img"></canvas>
+              </div>
+              <div class="text-controls-bar">
+                <span class="text-hint">Sweep your cursor through the letters fast for ripples</span>
+                <button id="jelly-text-jiggle-btn" class="playground-btn">✨ Jiggle All Letters</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 4: SCROLL STORY -->
+    <section id="story" class="story-section" data-bg="story">
+      <div class="container">
+        <div class="section-header">
+          <div class="section-tag">Scroll Kinetics</div>
+          <h2 class="section-title">The Anatomy of a Squish</h2>
+          <p class="section-desc">
+            As you scroll through the page, vertical velocity transfers momentum directly into the jelly.
+            Watch how the soft body transitions through four states of viscoelastic mechanics.
+          </p>
+        </div>
+
+        <div class="story-layout">
+          <!-- Sticky Visualizer Canvas -->
+          <div class="story-visualizer">
+            <div class="story-canvas-box">
+              <canvas id="story-canvas" width="540" height="540" aria-label="Scroll-driven morphing jelly shape" role="img"></canvas>
+              <div class="story-badge" id="story-badge-label">State 1: Impact</div>
+            </div>
+            <div class="story-meter-bar">
+              <div class="meter-fill" id="story-progress-bar"></div>
+            </div>
+          </div>
+
+          <!-- Narrative Steps -->
+          <div class="story-steps">
+            <article class="story-step active" data-step="0">
+              <div class="step-num">01</div>
+              <h3 class="step-title">Impact & Deformation</h3>
+              <p class="step-body">
+                When external kinetic energy makes contact, the jelly yields instantly. The impacted points deflect inward while volume preservation forces neighboring regions to bulge outwards along normal vectors.
+              </p>
+              <div class="step-metric">
+                <span class="metric-label">Deformation profile</span>
+                <span class="metric-value">Radial Flattening + Lateral Expansion</span>
+              </div>
+            </article>
+
+            <article class="story-step" data-step="1">
+              <div class="step-num">02</div>
+              <h3 class="step-title">Elastic Tension & Rebound</h3>
+              <p class="step-body">
+                Hooke's restoring springs accumulate potential energy proportionally to displacement. At peak deflection, velocity hits zero and reverses sharply, snapping the body upward with elastic overshoot.
+              </p>
+              <div class="step-metric">
+                <span class="metric-label">Potential energy</span>
+                <span class="metric-value">E_p = 1/2 · k · Δx²</span>
+              </div>
+            </article>
+
+            <article class="story-step" data-step="2">
+              <div class="step-num">03</div>
+              <h3 class="step-title">Viscous Harmonic Jiggle</h3>
+              <p class="step-body">
+                The body does not simply stop at rest. Instead, underdamped harmonic resonance produces multiple secondary ripples, traveling across the perimeter vertices like ripples on a pond.
+              </p>
+              <div class="step-metric">
+                <span class="metric-label">Damping ratio</span>
+                <span class="metric-value">Underdamped (ζ &lt; 1) Resonance</span>
+              </div>
+            </article>
+
+            <article class="story-step" data-step="3">
+              <div class="step-num">04</div>
+              <h3 class="step-title">Thermal Equilibrium & Idle Breath</h3>
+              <p class="step-body">
+                Frictional damping smoothly dissipates excess energy into stillness. Yet even at equilibrium, low-frequency micro-pulsations keep the gelatin feeling alive, warm, and ready for your next interaction.
+              </p>
+              <div class="step-metric">
+                <span class="metric-label">Equilibrium</span>
+                <span class="metric-value">0.4 Hz Ambient Breathing Cycle</span>
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 5: FOOTER CTA -->
+    <section id="footer-cta" class="footer-cta-section" data-bg="footer">
+      <div class="container footer-cta-container">
+        <div class="footer-cta-box">
+          <h2 class="footer-cta-headline">Ready to make your UI squishy?</h2>
+          <p class="footer-cta-subhead">
+            Zero dependencies. Pure HTML, CSS & vanilla JavaScript soft-body engine.
+            Take the jelly with you or bounce back to the beginning.
+          </p>
+
+          <div class="footer-cta-button-wrap">
+            <canvas id="footer-btn-canvas" width="360" height="110"></canvas>
+            <button id="footer-top-btn" class="footer-big-btn" aria-label="Bounce Back to Top">
+              <span class="btn-content">
+                <span class="btn-icon">🚀</span>
+                <span class="btn-main-text">Bounce Back to Top!</span>
+              </span>
+            </button>
+          </div>
+
+          <p class="footer-poke-caption">👆 Go ahead, poke and drag the big button!</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-bottom-inner">
+      <div class="footer-brand">
+        <span class="footer-logo">🍮 JellyUI</span>
+        <span class="footer-copy">Crafted with pure Canvas 2D, Hooke's Law, and love for soft-body physics.</span>
+      </div>
+      <div class="footer-links">
+        <a href="#hero">Hero</a>
+        <a href="#playground">Playground</a>
+        <a href="#components">Components</a>
+        <a href="#story">Physics Story</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
